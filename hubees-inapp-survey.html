@@ -294,23 +294,18 @@
 </head>
 <body>
     <div class="container">
-        <!-- Progress Bar -->
         <div class="progress-bar">
             <div class="progress-fill" id="progressBar" style="width: 33%;"></div>
         </div>
 
-        <!-- Back Button -->
         <button class="back-btn" id="backBtn" style="display: none;" onclick="goBack()">←</button>
 
-        <!-- Close Button -->
         <button class="close-btn" onclick="closeModal()">×</button>
 
-        <!-- Logo -->
         <div class="logo">
             <img src="https://d1gduqalqu2cp4.cloudfront.net/1705944576/assets/526f241070104650b59cac929a89f215.png" alt="Hubees">
         </div>
 
-        <!-- Screen 1: Initial Question -->
         <div class="screen active" id="screen1">
             <div class="question">
                 Você teve algum problema ao utilizar o aplicativo?
@@ -321,7 +316,6 @@
             </div>
         </div>
 
-        <!-- Screen 2: Problem Type -->
         <div class="screen" id="screen2">
             <div class="question">
                 Qual tipo de problema você enfrentou?
@@ -336,7 +330,6 @@
             </div>
         </div>
 
-        <!-- Screen 3: Details -->
         <div class="screen" id="screen3">
             <div class="question">
                 Conte-nos mais detalhes sobre o problema
@@ -353,7 +346,6 @@
             </div>
         </div>
 
-        <!-- Screen 4: Thank You -->
         <div class="screen" id="screen4">
             <div class="success-icon">✅</div>
             <div class="success-message">
@@ -362,7 +354,6 @@
             </div>
         </div>
 
-        <!-- Screen 5: No Problem -->
         <div class="screen" id="screen5">
             <div class="success-icon">😊</div>
             <div class="success-message">
@@ -378,7 +369,7 @@
         // ============================================
         
         // Substitua pela URL do seu Google Apps Script Web App
-        const GOOGLE_SHEETS_URL = 'SUA_URL_DO_GOOGLE_APPS_SCRIPT_AQUI';
+        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbweh-nH5O7lXLq1sFP0ZC39rqTsEwLeG5RFX_Xk541qm5_zmQ7sJC6DfxKVp9q9L4vNKA/exec';
         
         // ============================================
 
@@ -421,10 +412,29 @@
             showScreen(3);
         }
 
-        function handleNo() {
+        // FUNÇÃO CORRIGIDA: Agora envia o webhook quando o usuário informa que está tudo bem.
+        async function handleNo() {
+            // 1. Prepara os dados informando que não houve problema
             surveyData.hadProblem = false;
+            surveyData.problemType = "Nenhum";
+            surveyData.details = "Usuário informou que está tudo bem.";
+            surveyData.timestamp = new Date().toISOString();
+
+            // 2. Mostra a tela de agradecimento (screen 5)
             showScreen(5);
-            setTimeout(() => {}, 3000);
+            
+            // 3. Dispara o webhook em segundo plano
+            try {
+                await fetch(GOOGLE_SHEETS_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(surveyData)
+                });
+                console.log('Feedback positivo enviado com sucesso!');
+            } catch (error) {
+                console.error('Erro ao enviar feedback positivo:', error);
+            }
         }
 
         function goBack() {
@@ -454,46 +464,16 @@
             console.log('Modal fechado');
         }
 
-        // --- SUBSTITUA A FUNÇÃO handleNo POR ESTA ---
-        async function handleNo() {
-            // 1. Prepara os dados informando que não houve problema
-            surveyData.hadProblem = false;
-            surveyData.problemType = "Nenhum";
-            surveyData.details = "Usuário informou que está tudo bem.";
-            surveyData.timestamp = new Date().toISOString();
-
-            // 2. Mostra a tela de agradecimento imediatamente (para ser rápido para o usuário)
-            showScreen(5);
-
-            // 3. Dispara o webhook em segundo plano
-            try {
-                await fetch(GOOGLE_SHEETS_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(surveyData)
-                });
-                console.log('Feedback positivo enviado com sucesso!');
-            } catch (error) {
-                console.error('Erro ao enviar feedback positivo:', error);
-            }
-        }
-
-        // --- MANTENHA OU ATUALIZE A submitSurvey PARA FICAR ASSIM ---
+        // FUNÇÃO submitSurvey: Mantida para lidar com o envio de problemas
         async function submitSurvey() {
             const details = document.getElementById('problemDetails').value.trim();
-            
-            // Validação continua apenas para quem relatou problema
             if (!details) {
                 alert('Por favor, descreva o problema antes de enviar.');
                 return;
             }
-            
             surveyData.details = details;
             surveyData.timestamp = new Date().toISOString();
-            
             document.getElementById('loading').classList.add('show');
-            
             try {
                 await fetch(GOOGLE_SHEETS_URL, {
                     method: 'POST',
@@ -504,12 +484,17 @@
                 console.log('Feedback de problema enviado com sucesso!', surveyData);
                 document.getElementById('loading').classList.remove('show');
                 showScreen(4);
+                setTimeout(() => {}, 3000);
             } catch (error) {
                 console.error('Erro ao enviar feedback:', error);
                 document.getElementById('loading').classList.remove('show');
                 showScreen(4);
             }
         }
+
+        document.getElementById('problemDetails').addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
         });
     </script>
 </body>
