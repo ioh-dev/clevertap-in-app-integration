@@ -1,4 +1,4 @@
-# 📱 In-App Message Hubees - Guia de Implementação
+# 📱 In-App Message CleverTap <> Google Sheets
 
 ## 📋 Visão Geral
 
@@ -16,7 +16,7 @@ Este projeto consiste em um formulário de pesquisa interativo para coletar feed
 
 ## 📁 Arquivos Incluídos
 
-1. **hubees-inapp-survey.html** - Interface do formulário
+1. **inapp-survey.html** - Interface do formulário
 2. **google-apps-script.gs** - Script para integração com Google Sheets
 3. **README.md** - Este guia de implementação
 
@@ -59,7 +59,7 @@ Este projeto consiste em um formulário de pesquisa interativo para coletar feed
 
 ### Etapa 4: Configurar o HTML
 
-1. Abra o arquivo `hubees-inapp-survey.html`
+1. Abra o arquivo `inapp-survey.html`
 2. Encontre a linha 287:
    ```javascript
    const GOOGLE_SHEETS_URL = 'SUA_URL_DO_GOOGLE_APPS_SCRIPT_AQUI';
@@ -155,7 +155,7 @@ import { WebView } from 'react-native-webview';
 
 ```html
 <iframe 
-  src="hubees-inapp-survey.html" 
+  src="inapp-survey.html" 
   style="width: 100%; height: 600px; border: none;"
 ></iframe>
 ```
