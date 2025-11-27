@@ -54,10 +54,169 @@ Este projeto implementa uma solução completa de feedback para aplicativos móv
 
 ---
 
-## ⚠️ Detalhes Técnicos
+## 🔄 Como Funciona: Fluxo Completo de Dados
+
+### 1. Usuário Responde a Pesquisa (Frontend)
+
+Quando o usuário visualiza e responde a pesquisa no aplicativo:
+
+1. **Exibição:** O CleverTap exibe a pesquisa HTML personalizada dentro do app
+2. **Interação:** O usuário seleciona opções (radio buttons, checkboxes, etc.)
+3. **Captura de Dados:** O JavaScript captura automaticamente:
+   - CPF (Identity) do usuário - obtido via `CleverTap.getCleverTapID()`
+   - Nome do usuário - obtido via `CleverTap.profile.getName()`
+   - Respostas selecionadas na pesquisa
+
+### 2. Envio para o Backend (HTTP POST)
+
+O frontend envia os dados para o Google Apps Script via requisição HTTP:
+
+```javascript
+fetch(GOOGLE_SHEETS_URL, {
+  method: 'POST',
+  headers: { 'Content-Type': 'text/plain' }, // Evita bloqueios CORS em apps móveis
+  body: JSON.stringify({
+    cpf: "12345678900",
+    nome: "João Silva",
+    respostas: { pergunta1: "Sim", pergunta2: "Ótimo" }
+  })
+})
+```
+
+**Por que `text/plain`?** Apps móveis (Android/iOS) usam WebViews que podem bloquear requisições `application/json` por questões de segurança (CORS). O tipo `text/plain` bypassa essa restrição.
+
+### 3. Backend Recebe e Enriquece os Dados (Google Apps Script)
+
+O webhook no Google Apps Script processa os dados em 4 etapas:
+
+#### Etapa 3.1: Recepção e Parse
+```javascript
+function doPost(e) {
+  const dados = JSON.parse(e.postData.contents); // Converte texto para objeto
+  // dados = { cpf: "...", nome: "...", respostas: {...} }
+}
+```
+
+#### Etapa 3.2: Busca Localização na API do CleverTap
+
+O script faz uma chamada para a **CleverTap Profile API** para obter dados do usuário:
+
+**URL da API:**
+```
+https://{região}.api.clevertap.com/1/profile.json?identity={CPF}
+```
+
+**Autenticação:**
+- Header `X-CleverTap-Account-Id`: Seu Account ID
+- Header `X-CleverTap-Passcode`: Seu Passcode
+
+**Exemplo de Requisição:**
+```javascript
+const url = `https://us1.api.clevertap.com/1/profile.json?identity=12345678900`;
+const response = UrlFetchApp.fetch(url, {
+  headers: {
+    'X-CleverTap-Account-Id': 'W9R-486-4R5Z',
+    'X-CleverTap-Passcode': 'ABC-123-XYZ'
+  }
+});
+```
+
+**Resposta da API (simplificada):**
+```json
+{
+  "record": {
+    "email": "joao@email.com",
+    "name": "João Silva",
+    "platformInfo": [
+      {
+        "platform": "Android",
+        "lat": -23.5505,
+        "lon": -46.6333,
+        "build": 42
+      }
+    ]
+  }
+}
+```
+
+**De onde vem Latitude e Longitude?**
+- Vem do array `platformInfo` dentro do perfil do usuário
+- Cada dispositivo do usuário gera uma entrada com `lat` e `lon`
+- O script pega as coordenadas do dispositivo mais recente (último item do array)
+
+#### Etapa 3.3: Geocoding Reverso (Coordenadas → Endereço)
+
+Com a latitude e longitude em mãos, o script consulta a **API do Google Maps** para converter coordenadas em endereço legível:
+
+**URL da API:**
+```
+https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lon}
+```
+
+**Exemplo de Requisição:**
+```javascript
+const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=-23.5505,-46.6333`;
+const response = UrlFetchApp.fetch(url);
+```
+
+**Resposta da API (simplificada):**
+```json
+{
+  "results": [
+    {
+      "formatted_address": "Av. Paulista, 1578 - Bela Vista, São Paulo - SP, 01310-200, Brasil"
+    }
+  ]
+}
+```
+
+O script extrai o `formatted_address` do primeiro resultado.
+
+#### Etapa 3.4: Salvamento no Google Sheets
+
+Finalmente, todos os dados são organizados e salvos na planilha:
+
+```javascript
+sheet.appendRow([
+  new Date(),           // Data/Hora da resposta
+  dados.cpf,            // CPF (Identity)
+  dados.nome,           // Nome do usuário
+  JSON.stringify(dados.respostas), // Respostas da pesquisa
+  `${lat}, ${lon}`,     // Coordenadas (da API CleverTap)
+  endereco              // Endereço formatado (da API Google Maps)
+]);
+```
+
+**Resultado na Planilha:**
+
+| Data | CPF | Nome | Respostas | Localização | Endereço |
+|------|-----|------|-----------|-------------|----------|
+| 2024-01-15 14:30 | 12345678900 | João Silva | {"pergunta1":"Sim"} | -23.5505, -46.6333 | Av. Paulista, 1578... |
+
+---
+
+## 🔐 APIs Utilizadas
+
+### 1. CleverTap Profile API
+- **Finalidade:** Buscar dados do perfil do usuário (localização, dispositivo, etc.)
+- **Documentação:** https://developer.clevertap.com/docs/profile-api
+- **Autenticação:** Account ID + Passcode (headers HTTP)
+- **Dados Extraídos:** `platformInfo[].lat` e `platformInfo[].lon`
+
+### 2. Google Maps Geocoding API
+- **Finalidade:** Converter coordenadas (lat/lon) em endereço legível
+- **Documentação:** https://developers.google.com/maps/documentation/geocoding
+- **Autenticação:** Não requer (versão básica)
+- **Dados Extraídos:** `results[0].formatted_address`
+
+---
+
+## ⚠️ Detalhes Técnicos Importantes
 
 * **Envio de Dados:** O frontend utiliza `text/plain` no header para evitar bloqueios de CORS em WebViews (Android/iOS). O Backend processa isso automaticamente.
 * **Geolocalização:** O sistema prioriza a busca de localização no array `platformInfo` da API do CleverTap, que provou ser mais preciso que o `profileData`.
+* **Timeout:** As chamadas de API têm timeout de 10 segundos. Se a API do CleverTap ou Google Maps não responder, o sistema salva os dados sem localização.
+* **Privacidade:** As coordenadas e endereços são obtidos dos dados já coletados pelo CleverTap SDK, não são capturados diretamente pelo formulário.
 
 ## 📝 Licença
 
