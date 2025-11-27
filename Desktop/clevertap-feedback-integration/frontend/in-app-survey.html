@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pesquisa de Satisfação</title>
+<style>
+/* CSS Reset e Estilos Base */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: transparent;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+.container {
+    background: linear-gradient(135deg, #fadf4b 0%, #f5d532 100%);
+    border-radius: 35px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    max-width: 450px;
+    width: 100%;
+    min-height: 420px; 
+    padding: 50px 30px; 
+    display: flex; flex-direction: column; justify-content: center;
+    overflow: hidden; position: relative;
+    z-index: 2147483647 !important; pointer-events: auto !important;
+}
+.screen { display: none; width: 100%; animation: fadeIn 0.4s ease-in-out; }
+.screen.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.question { font-size: 24px; font-weight: 600; color: #000000; margin-bottom: 40px; text-align: center; line-height: 1.4; margin-top: 10px; }
+.btn-group { display: flex; flex-direction: column; gap: 15px; }
+.btn {
+    background: white; border: 2px solid #000000; border-radius: 12px; padding: 20px 24px;
+    font-size: 16px; font-weight: 600; color: #000000; cursor: pointer; transition: all 0.3s ease;
+    text-align: center; position: relative; overflow: hidden; pointer-events: auto; z-index: 10;
+}
+.btn:hover { border-color: #000000; background: #f5f5f5; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
+.btn:active { transform: translateY(0); }
+.btn-primary { background: #000000; color: #fadf4b; border: 2px solid #000000; font-weight: 700; }
+.btn-primary:hover { background: #1a1a1a; color: #ffffff; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); }
+.btn-icon { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.btn-app::before { content: '📱'; font-size: 24px; }
+.btn-parking::before { content: '🅿️'; font-size: 24px; }
+textarea {
+    width: 100%; min-height: 140px; padding: 15px; border: 2px solid #000000; border-radius: 12px;
+    font-size: 15px; font-family: inherit; color: #000000; background: white; resize: vertical;
+    transition: border-color 0.3s ease; margin-bottom: 20px;
+}
+textarea:focus { outline: none; border-color: #000000; box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1); }
+textarea::placeholder { color: #666666; }
+.success-icon { text-align: center; font-size: 72px; margin-bottom: 25px; animation: scaleIn 0.5s ease-in-out; }
+.success-message { text-align: center; color: #000000; line-height: 1.6; }
+.success-message h2 { font-size: 26px; margin-bottom: 15px; color: #000000; font-weight: 700; }
+.success-message p { font-size: 18px; color: #1a1a1a; }
+.progress-bar {
+    height: 4px; background: rgba(0, 0, 0, 0.15); border-radius: 2px; margin-bottom: 30px;
+    overflow: hidden; width: 85%; margin-left: auto; margin-right: auto; position: absolute; top: 40px; left: 0; right: 0;
+}
+.progress-fill { height: 100%; background: #000000; transition: width 0.3s ease; }
+.back-btn {
+    position: absolute; top: 30px; left: 20px; background: none; border: none; font-size: 28px;
+    cursor: pointer; color: #000000; transition: color 0.3s ease; z-index: 20;
+}
+.back-btn:hover { color: #333333; }
+.loading { display: none; text-align: center; color: #000000; margin-top: 10px; }
+.loading.show { display: block; }
+.spinner {
+    border: 3px solid rgba(0, 0, 0, 0.1); border-top: 3px solid #000000; border-radius: 50%;
+    width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto 10px;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@media (max-width: 480px) { .container { padding: 40px 25px; border-radius: 25px; min-height: 450px; } .question { font-size: 22px; } }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="progress-bar"><div class="progress-fill" id="progressBar" style="width: 33%;"></div></div>
+    <button class="back-btn" id="backBtn" style="display: none;" onclick="goBack()">←</button>
+
+    <div class="screen active" id="screen1">
+        <div class="question">Você teve algum problema ao utilizar o aplicativo?</div>
+        <div class="btn-group">
+            <button class="btn" onclick="handleNo()">Não, está tudo bem! ✅</button>
+            <button class="btn" onclick="goToScreen2()">Sim, tive um problema</button>
+        </div>
+    </div>
+
+    <div class="screen" id="screen2">
+        <div class="question">Qual tipo de problema você enfrentou?</div>
+        <div class="btn-group">
+            <button class="btn btn-icon btn-app" onclick="selectProblemType('Problema no aplicativo')">Problema no aplicativo</button>
+            <button class="btn btn-icon btn-parking" onclick="selectProblemType('Problema no estacionamento')">Problema no estacionamento</button>
+        </div>
+    </div>
+
+    <div class="screen" id="screen3">
+        <div class="question">Conte-nos mais detalhes sobre o problema</div>
+        <textarea id="problemDetails" placeholder="Descreva o que aconteceu para que possamos ajudá-lo da melhor forma possível..." maxlength="500"></textarea>
+        <button class="btn btn-primary" onclick="submitSurvey()">Enviar Feedback</button>
+        <div class="loading" id="loading"><div class="spinner"></div><p>Enviando seu feedback...</p></div>
+    </div>
+
+    <div class="screen" id="screen4">
+        <div class="success-icon">✅</div>
+        <div class="success-message"><h2>Obrigado pelo seu feedback!</h2><p>Sua opinião é muito importante para nós.</p></div>
+    </div>
+
+    <div class="screen" id="screen5">
+        <div class="success-icon">😊</div>
+        <div class="success-message"><h2>Que ótimo!</h2><p>Ficamos felizes em saber que está tudo funcionando bem.</p></div>
+    </div>
+</div>
+
+<script>
+// ============================================
+// CONFIGURAÇÃO
+// ============================================
+
+// [IMPORTANTE] SUBSTITUA PELA SUA URL DO GOOGLE APPS SCRIPT
+const GOOGLE_SHEETS_URL = 'INSIRA_SUA_URL_DO_SCRIPT_AQUI';
+
+let CT_IDENTITY = '';
+let USER_NAME = 'Visitante';
+
+// Captura segura via Liquid Tag (CPF e Nome)
+try {
+    CT_IDENTITY = '{{ Profile.Identity | default: "" }}';
+    USER_NAME = '{{ Profile.name | default: "Visitante" }}';
+} catch (e) { console.error("Erro Tags:", e); }
+
+// Objeto de dados
+let surveyData = {
+    identity: CT_IDENTITY,
+    name: USER_NAME,
+    hadProblem: null,
+    problemType: null,
+    details: null,
+    timestamp: null,
+    latitude: "0",
+    longitude: "0"
+};
+
+// --- NAVEGAÇÃO ---
+let currentScreen = 1;
+
+window.showScreen = function(screenNumber) {
+    document.querySelectorAll('.screen').forEach(screen => { screen.classList.remove('active'); });
+    document.getElementById(`screen${screenNumber}`).classList.add('active');
+    currentScreen = screenNumber;
+    updateProgress(screenNumber);
+    const backBtn = document.getElementById('backBtn');
+    if (backBtn) {
+        if (screenNumber === 1 || screenNumber === 4 || screenNumber === 5) backBtn.style.display = 'none';
+        else backBtn.style.display = 'block';
+    }
+}
+window.updateProgress = function(screenNumber) {
+    const progressBar = document.getElementById('progressBar');
+    if(progressBar) {
+        const progressMap = {1: 33, 2: 50, 3: 75, 4: 100, 5: 100};
+        progressBar.style.width = progressMap[screenNumber] + '%';
+    }
+}
+window.goToScreen2 = function() { surveyData.hadProblem = true; showScreen(2); }
+window.selectProblemType = function(type) { surveyData.problemType = type; showScreen(3); }
+window.goBack = function() { if (currentScreen === 2) showScreen(1); else if (currentScreen === 3) showScreen(2); }
+
+// --- ENVIOS ---
+window.handleNo = async function() {
+    surveyData.hadProblem = false;
+    surveyData.problemType = "Nenhum";
+    surveyData.details = "Usuário informou que está tudo bem.";
+    surveyData.timestamp = new Date().toISOString();
+    showScreen(5);
+    await sendDataToScript();
+}
+
+window.submitSurvey = async function() {
+    const detailsInput = document.getElementById('problemDetails');
+    const details = detailsInput ? detailsInput.value.trim() : "";
+    if (!details) { alert('Por favor, descreva o problema antes de enviar.'); return; }
+    
+    surveyData.details = details;
+    surveyData.timestamp = new Date().toISOString();
+    const loading = document.getElementById('loading');
+    if(loading) loading.classList.add('show');
+    await sendDataToScript();
+    if(loading) loading.classList.remove('show');
+    showScreen(4);
+}
+
+// ENVIO DE DADOS (TEXT/PLAIN PARA EVITAR CORS)
+async function sendDataToScript() {
+    try {
+        await fetch(GOOGLE_SHEETS_URL, {
+            method: 'POST',
+            mode: 'no-cors', 
+            headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify(surveyData)
+        });
+        console.log("Envio disparado.");
+    } catch (error) { console.error('Erro envio:', error); }
+}
+
+const textarea = document.getElementById('problemDetails');
+if (textarea) {
+    textarea.addEventListener('input', function() {
+        this.style.height = 'auto'; this.style.height = (this.scrollHeight) + 'px';
+    });
+}
+</script>
+</body>
+</html>
